@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { getContract } from '../../utils/contract';
-import Head from 'next/head';
 import confetti from 'canvas-confetti';
 
 declare global {
@@ -12,7 +11,7 @@ declare global {
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [ethBalance, setEthBalance] = useState<string | null>(null);
+//  const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [contractBalance, setContractBalance] = useState<string | null>(null);
   const [ownerAddress, setOwnerAddress] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState<boolean | null>(null);
@@ -21,7 +20,7 @@ export default function Home() {
   const [status, setStatus] = useState<string | null>(null);
 
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS!;
-  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+//  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
 
   const connectWallet = async () => {
     if (typeof window.ethereum === 'undefined') {
@@ -75,7 +74,7 @@ export default function Home() {
     let parsedAmount;
     try {
       parsedAmount = ethers.parseEther(tipAmount.replace(',', '.'));
-    } catch (e) {
+    } catch (exception) {
       setStatus("⚠️ Failed to parse ETH value");
       return;
     }
