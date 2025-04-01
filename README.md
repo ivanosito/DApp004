@@ -7,9 +7,11 @@ Welcome to **TipJar With Modifiers**, a full-stack Ethereum DApp deployed on the
 This application represents a noble fusion of **Solidity**, **Next.js**, and **Ethers.js**, wrapped in the silken style of **Tailwind CSS**, and protected by modifiers of trust.
 
 ---
-### 🕶️ Smart Contract Diagram (Dark Hacker Mode)
+
+### 🕶️ Smart Contract Diagram (Amber+Green Retrofuturistic Mode)
 
 ![TipJar UML – Dark](./public/tipjar-diagram-dark.png)
+
 ---
 
 ## ✨ Features
