@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { getContract } from '../../utils/contract';
+import Head from 'next/head';
+import confetti from 'canvas-confetti';
+
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -44,27 +52,51 @@ export default function Home() {
     setOwnerAddress(owner);
     setIsOwner(owner.toLowerCase() === walletAddress.toLowerCase());
 
-    const paused = await contract.tipsPaused();
+    const paused = await contract.paused();
     setIsPaused(paused);
   };
 
   const sendTip = async () => {
     if (!walletAddress || typeof window.ethereum === 'undefined') return;
+  
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const contract = getContract(signer);
-
+  
+    if (!tipAmount || isNaN(Number(tipAmount.replace(',', '.')))) {
+      setStatus("⚠️ Invalid ETH amount");
+      return;
+    }
+    if (Number(tipAmount.replace(',', '.')) <= 0) {
+      setStatus("⚠️ Amount must be greater than 0");
+      return;
+    }
+  
+    let parsedAmount;
     try {
-      const tx = await contract.sendTip({
-        value: ethers.parseEther(tipAmount)
+      parsedAmount = ethers.parseEther(tipAmount.replace(',', '.'));
+    } catch (e) {
+      setStatus("⚠️ Failed to parse ETH value");
+      return;
+    }
+  
+    try {
+      const tipMessage = "Thanks for the great content!";
+      const tx = await contract.sendTip(tipMessage, {
+        value: parsedAmount
       });
       setStatus("Sending tip...");
       await tx.wait();
-      setStatus("Tip sent!");
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+      setStatus("✅ Tip sent!");
       loadContractData();
     } catch (e) {
       console.error(e);
-      setStatus("Transaction failed.");
+      setStatus("❌ Transaction failed.");
     }
   };
 
@@ -103,6 +135,9 @@ export default function Home() {
 
   return (
     <main className="p-8 font-mono text-white bg-black min-h-screen">
+    <head>
+      <title>🧙‍♂️ TipJar With Modifiers</title>
+    </head>
       <h1 className="text-3xl mb-4">🧙 TipJar With Modifiers</h1>
       {!walletAddress ? (
         <button onClick={connectWallet} className="bg-blue-600 px-4 py-2 rounded">
@@ -116,15 +151,20 @@ export default function Home() {
           <p><strong>👑 Owner:</strong> {ownerAddress}</p>
           <p><strong>⛔ Paused:</strong> {isPaused ? "Yes" : "No"}</p>
 
-          <div className="space-x-2">
+          <div className="space-x-4">
+            <label htmlFor="tipAmount" className="text-left text-sm font-semibold">💸 Tip Amount:</label>
             <input
               type="number"
               step="0.01"
               min="0"
               value={tipAmount}
               onChange={(e) => setTipAmount(e.target.value)}
-              className="text-black p-1"
+              className="bg-white text-black border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 w-32"
+              id="tipAmount"
+              placeholder="0.01"
             />
+          </div>
+          <div className="space-x-2 text-left">
             <button onClick={sendTip} className="bg-green-600 px-4 py-2 rounded">
               💸 Send Tip
             </button>
