@@ -1,113 +1,146 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useEffect, useState } from 'react';
+import { ethers } from 'ethers';
+import { getContract } from '../../utils/contract';
 
 export default function Home() {
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [ethBalance, setEthBalance] = useState<string | null>(null);
+  const [contractBalance, setContractBalance] = useState<string | null>(null);
+  const [ownerAddress, setOwnerAddress] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState<boolean | null>(null);
+  const [tipAmount, setTipAmount] = useState<string>('0.01');
+  const [isOwner, setIsOwner] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS!;
+  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum === 'undefined') {
+      alert("Please install MetaMask.");
+      return;
+    }
+
+    try {
+      const [account] = await window.ethereum.request({
+        method: 'eth_requestAccounts'
+      });
+      setWalletAddress(account);
+    } catch (err) {
+      console.error("User denied account access", err);
+    }
+  };
+
+  const loadContractData = async () => {
+    if (!walletAddress || typeof window.ethereum === 'undefined') return;
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const contract = getContract(provider);
+
+    const bal = await provider.getBalance(contractAddress);
+    setContractBalance(ethers.formatEther(bal));
+
+    const owner = await contract.owner();
+    setOwnerAddress(owner);
+    setIsOwner(owner.toLowerCase() === walletAddress.toLowerCase());
+
+    const paused = await contract.tipsPaused();
+    setIsPaused(paused);
+  };
+
+  const sendTip = async () => {
+    if (!walletAddress || typeof window.ethereum === 'undefined') return;
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const contract = getContract(signer);
+
+    try {
+      const tx = await contract.sendTip({
+        value: ethers.parseEther(tipAmount)
+      });
+      setStatus("Sending tip...");
+      await tx.wait();
+      setStatus("Tip sent!");
+      loadContractData();
+    } catch (e) {
+      console.error(e);
+      setStatus("Transaction failed.");
+    }
+  };
+
+  const pauseTips = async () => {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const contract = getContract(signer);
+    const tx = await contract.pauseTips();
+    await tx.wait();
+    loadContractData();
+  };
+
+  const resumeTips = async () => {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const contract = getContract(signer);
+    const tx = await contract.resumeTips();
+    await tx.wait();
+    loadContractData();
+  };
+
+  const withdraw = async () => {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const contract = getContract(signer);
+    const tx = await contract.withdraw();
+    await tx.wait();
+    loadContractData();
+  };
+
+  useEffect(() => {
+    if (walletAddress) {
+      loadContractData();
+    }
+  }, [walletAddress]);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <main className="p-8 font-mono text-white bg-black min-h-screen">
+      <h1 className="text-3xl mb-4">🧙 TipJar With Modifiers</h1>
+      {!walletAddress ? (
+        <button onClick={connectWallet} className="bg-blue-600 px-4 py-2 rounded">
+          🔌 Connect Wallet
+        </button>
+      ) : (
+        <div className="space-y-4">
+          <p><strong>🧝 Address:</strong> {walletAddress}</p>
+          <p><strong>📜 Contract:</strong> {contractAddress}</p>
+          <p><strong>💰 Contract Balance:</strong> {contractBalance} ETH</p>
+          <p><strong>👑 Owner:</strong> {ownerAddress}</p>
+          <p><strong>⛔ Paused:</strong> {isPaused ? "Yes" : "No"}</p>
+
+          <div className="space-x-2">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={tipAmount}
+              onChange={(e) => setTipAmount(e.target.value)}
+              className="text-black p-1"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <button onClick={sendTip} className="bg-green-600 px-4 py-2 rounded">
+              💸 Send Tip
+            </button>
+          </div>
+
+          {isOwner && (
+            <div className="space-x-2">
+              <button onClick={pauseTips} className="bg-yellow-600 px-4 py-2 rounded">⛔ Pause Tips</button>
+              <button onClick={resumeTips} className="bg-indigo-600 px-4 py-2 rounded">▶️ Resume Tips</button>
+              <button onClick={withdraw} className="bg-red-600 px-4 py-2 rounded">💰 Withdraw</button>
+            </div>
+          )}
+
+          {status && <p><strong>Status:</strong> {status}</p>}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+    </main>
   );
 }
